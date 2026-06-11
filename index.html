@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>媒体转换工具</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root {
+    --bg: #f1f5f9;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --text-secondary: #64748b;
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
+    --primary-light: #eef2ff;
+    --danger: #ef4444;
+    --danger-light: #fef2f2;
+    --success: #10b981;
+    --success-light: #ecfdf5;
+    --warning: #f59e0b;
+    --warning-light: #fffbeb;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --shadow-md: 0 4px 6px rgba(0,0,0,.05), 0 2px 4px rgba(0,0,0,.04);
+    --shadow-lg: 0 10px 25px rgba(0,0,0,.06), 0 4px 10px rgba(0,0,0,.04);
+    --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+    color: #fff;
+    padding: 32px 24px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(circle at 30% 70%, rgba(255,255,255,0.08) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .header h1 { font-size: 28px; font-weight: 700; letter-spacing: -.5px; position: relative; }
+  .header p { font-size: 14px; opacity: .85; margin-top: 6px; position: relative; }
+
+  /* Container */
+  .container { max-width: 960px; margin: -20px auto 40px; padding: 0 20px; position: relative; z-index: 1; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    padding: 4px;
+    gap: 4px;
+    margin-bottom: 24px;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    background: transparent;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text); background: var(--bg); }
+  .tab-btn.active { background: var(--primary); color: #fff; box-shadow: var(--shadow); }
+  .tab-icon { width: 20px; height: 20px; flex-shrink: 0; }
+
+  /* Card */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+  }
+
+  /* Upload Zone */
+  .upload-zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: var(--radius);
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+    background: #f8fafc;
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--primary);
+    background: var(--primary-light);
+  }
+  .upload-zone.drag-over { transform: scale(1.01); }
+  .upload-icon { width: 48px; height: 48px; color: #94a3b8; margin-bottom: 12px; }
+  .upload-zone h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .upload-zone p { font-size: 13px; color: var(--text-secondary); }
+
+  /* Settings Row */
+  .settings-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+  .setting-group { display: flex; flex-direction: column; gap: 6px; }
+  .setting-group label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+  .setting-group select, .setting-group input[type="range"] { min-width: 140px; }
+  select {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,.1); }
+  input[type="range"] { accent-color: var(--primary); }
+
+  /* Buttons */
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+  .btn-outline { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
+  .btn-outline:hover:not(:disabled) { background: var(--primary-light); }
+  .btn-danger { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
+  .btn-danger:hover:not(:disabled) { background: var(--danger-light); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-success:hover:not(:disabled) { background: #059669; }
+  .btn-lg { padding: 12px 28px; font-size: 15px; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .btn-icon { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; }
+
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+
+  /* File Grid */
+  .file-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .file-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    transition: var(--transition);
+    position: relative;
+  }
+  .file-card:hover { box-shadow: var(--shadow-md); }
+  .file-card .thumb {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    display: block;
+    background: #f1f5f9;
+  }
+  .file-card .info {
+    padding: 10px 12px;
+  }
+  .file-card .name {
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .file-card .meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .file-card .remove-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0,0,0,.5);
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    opacity: 0;
+  }
+  .file-card:hover .remove-btn { opacity: 1; }
+  .file-card .remove-btn:hover { background: var(--danger); }
+
+  /* Result Card */
+  .result-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: #fff;
+    transition: var(--transition);
+  }
+  .result-card:hover { box-shadow: var(--shadow-md); }
+  .result-card .thumb { width: 100%; height: 130px; object-fit: cover; display: block; background: #f1f5f9; }
+  .result-card .info { padding: 10px 12px; }
+  .result-card .name { font-size: 12px; font-weight: 500; }
+  .result-card .size-compare { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+  .result-card .size-compare .arrow { color: var(--primary); margin: 0 4px; }
+  .result-card .size-compare .reduced { color: var(--success); font-weight: 600; }
+  .result-card .dl-btn {
+    margin-top: 8px;
+    width: 100%;
+    padding: 6px;
+    border: 1px solid var(--primary);
+    background: #fff;
+    color: var(--primary);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: var(--transition);
+  }
+  .result-card .dl-btn:hover { background: var(--primary-light); }
+
+  /* Progress */
+  .progress-container { margin-top: 16px; display: none; }
+  .progress-bar-bg { background: #e2e8f0; border-radius: 10px; height: 8px; overflow: hidden; }
+  .progress-bar-fg {
+    background: linear-gradient(90deg, var(--primary), #a855f7);
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.3s ease;
+  }
+  .progress-text { font-size: 13px; color: var(--text-secondary); margin-top: 6px; text-align: center; }
+
+  /* FFmpeg Status */
+  .ffmpeg-status {
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    margin-top: 12px;
+    display: none;
+  }
+  .ffmpeg-status.loading { background: #eff6ff; color: #3b82f6; border: 1px solid #bfdbfe; display: block; }
+  .ffmpeg-status.ready { background: var(--success-light); color: #065f46; border: 1px solid #a7f3d0; display: block; }
+  .ffmpeg-status.error { background: var(--danger-light); color: #991b1b; border: 1px solid #fecaca; display: block; }
+
+  /* Video Info */
+  .video-info { display: none; margin-top: 12px; }
+  .video-info .info-row { display: flex; gap: 24px; flex-wrap: wrap; }
+  .video-info .info-item { font-size: 14px; }
+  .video-info .info-item span { color: var(--text-secondary); }
+  .video-info .info-item strong { font-weight: 600; }
+
+  /* Status Badge */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-success { background: var(--success-light); color: #065f46; }
+  .badge-info { background: #eff6ff; color: #3b82f6; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 32px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    display: none;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-secondary);
+    font-size: 12px;
+  }
+
+  /* Audio Trimmer */
+  .waveform-container {
+    position: relative;
+    margin-top: 20px;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    display: none;
+  }
+  .waveform-container canvas {
+    display: block;
+    width: 100%;
+    height: 120px;
+  }
+  .trim-overlay {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: rgba(99,102,241,.15);
+    border-left: 2px solid var(--primary);
+    border-right: 2px solid var(--primary);
+    pointer-events: none;
+  }
+  .trim-handle {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 8px;
+    background: var(--primary);
+    cursor: ew-resize;
+    border-radius: 2px;
+    z-index: 2;
+  }
+  .trim-handle::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 20px; height: 20px;
+    background: #fff;
+    border: 2px solid var(--primary);
+    border-radius: 50%;
+  }
+  .trim-range-row {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .trim-range-row .setting-group { flex: 1; min-width: 160px; }
+  .audio-info {
+    display: none;
+    margin-top: 12px;
+    padding: 14px;
+    background: #f8fafc;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+  }
+  .audio-info-row { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; }
+  .audio-info-row span { color: var(--text-secondary); }
+  .audio-info-row strong { font-weight: 600; }
+  .trim-time-display {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .tabs { flex-direction: column; }
+    .file-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    .settings-row { flex-direction: column; }
+    .header h1 { font-size: 22px; }
+    .card { padding: 16px; }
+  }
+
+  /* Animation */
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  .fade-in { animation: fadeIn .3s ease; }
+
+  /* Hidden file input */
+  .hidden-input { display: none; }
+
+  /* Spinner */
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner-dark { border-color: rgba(99,102,241,.3); border-top-color: var(--primary); }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>🎬 媒体转换工具</h1>
+  <p>图片格式转换与压缩 · 音频剪切 · 视频提取音频 — 一切都在浏览器本地完成</p>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Container -->
+<div class="container">
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="convert">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      图片格式转换与压缩
+    </button>
+    <button class="tab-btn" data-tab="audio">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      音频剪切
+    </button>
+    <button class="tab-btn" data-tab="video">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+      视频提取 MP3
+    </button>
+  </div>
+
+  <!-- Tab: Image Conversion & Compression -->
+  <div class="tab-content" id="tab-convert">
+    <div class="card">
+      <div class="upload-zone" id="convert-zone">
+        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <h3>拖拽图片到此处，或点击上传</h3>
+        <p>上传图片后可转换格式或调节画质进行压缩 — 支持 PNG、JPEG、WebP、GIF、BMP、SVG 等</p>
+      </div>
+      <input type="file" class="hidden-input" id="convert-input" accept="image/*" multiple>
+
+      <div class="settings-row">
+        <div class="setting-group">
+          <label>输出格式</label>
+          <select id="convert-format">
+            <option value="image/png">PNG（无损）</option>
+            <option value="image/jpeg">JPEG（适合照片）</option>
+            <option value="image/webp">WebP（高压缩比）</option>
+          </select>
+        </div>
+        <div class="setting-group" id="convert-quality-group" style="display:none">
+          <label>画质：<span id="convert-quality-val">85</span>%</label>
+          <input type="range" id="convert-quality" min="10" max="100" value="85" step="5">
+        </div>
+      </div>
+
+      <div class="file-grid" id="convert-files"></div>
+      <div class="empty-state" id="convert-empty">请先上传需要转换或压缩的图片</div>
+
+      <div class="actions" id="convert-actions" style="display:none">
+        <button class="btn btn-primary btn-lg" id="convert-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          开始转换
+        </button>
+        <button class="btn btn-outline" id="convert-clear">清空列表</button>
+      </div>
+
+      <div class="progress-container" id="convert-progress">
+        <div class="progress-bar-bg"><div class="progress-bar-fg" style="width:0%"></div></div>
+        <div class="progress-text"></div>
+      </div>
+    </div>
+
+    <div class="card" id="convert-results-card" style="display:none">
+      <h3 style="font-size:16px;margin-bottom:12px;">转换 / 压缩结果</h3>
+      <div class="file-grid" id="convert-results"></div>
+      <div class="actions">
+        <button class="btn btn-success btn-lg" id="convert-download-all">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          打包下载全部 (ZIP)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Audio Trimmer -->
+  <div class="tab-content" id="tab-audio" style="display:none">
+    <div class="card">
+      <div class="upload-zone" id="audio-zone">
+        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        <h3>拖拽音频到此处，或点击上传</h3>
+        <p>支持 MP3、WAV、OGG、AAC、FLAC、M4A、WebM 等常见音频格式</p>
+      </div>
+      <input type="file" class="hidden-input" id="audio-input" accept="audio/*">
+
+      <div class="audio-info" id="audio-info">
+        <div class="audio-info-row">
+          <div><span>文件名：</span><strong id="audio-name"></strong></div>
+          <div><span>时长：</span><strong id="audio-duration-text"></strong></div>
+          <div><span>大小：</span><strong id="audio-size"></strong></div>
+          <div><span>采样率：</span><strong id="audio-sample-rate"></strong></div>
+        </div>
+      </div>
+
+      <div class="waveform-container" id="waveform-container">
+        <canvas id="waveform-canvas"></canvas>
+        <div class="trim-overlay" id="trim-overlay"></div>
+        <div class="trim-handle" id="trim-handle-left" style="left:0"></div>
+        <div class="trim-handle" id="trim-handle-right" style="right:0"></div>
+      </div>
+      <div class="trim-time-display" id="trim-time-display" style="display:none">
+        <span>选区起点：<strong id="trim-start-display">0:00</strong></span>
+        <span>选区终点：<strong id="trim-end-display">0:00</strong></span>
+        <span>选区时长：<strong id="trim-dur-display">0:00</strong></span>
+      </div>
+
+      <div class="actions" id="audio-actions" style="display:none;margin-top:16px;">
+        <button class="btn btn-primary" id="audio-preview-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          试听选区
+        </button>
+        <button class="btn btn-success" id="audio-export-mp3">
+          导出 MP3
+        </button>
+        <button class="btn btn-outline" id="audio-export-wav">
+          导出 WAV
+        </button>
+        <button class="btn btn-outline" id="audio-clear">清空</button>
+      </div>
+
+      <div class="progress-container" id="audio-progress">
+        <div class="progress-bar-bg"><div class="progress-bar-fg" style="width:0%"></div></div>
+        <div class="progress-text"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Video to MP3 -->
+  <div class="tab-content" id="tab-video" style="display:none">
+    <div class="card">
+      <div class="upload-zone" id="video-zone">
+        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        <h3>拖拽视频到此处，或点击上传</h3>
+        <p>支持 MP4、MOV、AVI、WebM、MKV 等常见视频格式</p>
+      </div>
+      <input type="file" class="hidden-input" id="video-input" accept="video/*">
+
+      <div class="video-info" id="video-info">
+        <div class="info-row">
+          <div class="info-item"><span>文件名：</span><strong id="video-name"></strong></div>
+          <div class="info-item"><span>大小：</span><strong id="video-size"></strong></div>
+          <div class="info-item"><span>时长：</span><strong id="video-duration"></strong></div>
+        </div>
+      </div>
+
+      <div class="ffmpeg-status ready" id="ffmpeg-status">
+        &#10003; 浏览器原生音频引擎已就绪（轻量级，无需额外下载）
+      </div>
+
+      <div class="actions" id="video-actions" style="display:none">
+        <button class="btn btn-primary btn-lg" id="video-convert-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          提取 MP3 音频
+        </button>
+        <button class="btn btn-outline" id="video-clear">更换视频</button>
+      </div>
+
+      <div class="progress-container" id="video-progress">
+        <div class="progress-bar-bg"><div class="progress-bar-fg" style="width:0%"></div></div>
+        <div class="progress-text"></div>
+      </div>
+    </div>
+
+    <div class="card" id="video-result-card" style="display:none">
+      <h3 style="font-size:16px;margin-bottom:12px;">提取结果</h3>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-weight:600;font-size:15px;" id="mp3-name"></div>
+          <div style="color:var(--text-secondary);font-size:13px;margin-top:4px;" id="mp3-size"></div>
+        </div>
+        <button class="btn btn-success btn-lg" id="video-download-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          下载 MP3
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <div>所有处理均在浏览器本地完成，您的文件不会上传到任何服务器</div>
+  <div style="margin-top:4px;opacity:.6;">Design by 白泽</div>
+</div>
+
+<script src="lame.min.js"></script>
+<script type="module">
+
+// ==================== STATE ====================
+const state = {
+  convertFiles: [],
+  convertResults: [],
+  videoFile: null,
+  mp3Blob: null,
+  mp3Name: '',
+};
+
+// ==================== HELPERS ====================
+function $(sel) { return document.querySelector(sel); }
+function $$(sel) { return document.querySelectorAll(sel); }
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+function pctChange(orig, now) {
+  const pct = ((1 - now / orig) * 100).toFixed(1);
+  return pct > 0 ? `-${pct}%` : pct + '%';
+}
+function fmtTime(seconds) {
+  const s = Math.max(0, seconds || 0);
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+function extFromMime(mime) {
+  const map = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/bmp': 'bmp', 'image/gif': 'gif' };
+  return map[mime] || 'png';
+}
+function formatLabel(mime) {
+  const map = { 'image/png': 'PNG', 'image/jpeg': 'JPEG', 'image/webp': 'WebP' };
+  return map[mime] || mime;
+}
+
+// Toast
+let toastTimer;
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// Download blob
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Read image file -> HTMLImageElement
+function readImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Convert image via canvas
+function canvasConvert(img, mime, quality) {
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  // For JPEG, fill white background (JPEG doesn't support alpha)
+  if (mime === 'image/jpeg') {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  ctx.drawImage(img, 0, 0);
+  return new Promise(resolve => {
+    canvas.toBlob(blob => resolve(blob), mime, quality / 100);
+  });
+}
+
+// ==================== TABS ====================
+$$('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    $$('.tab-content').forEach(c => c.style.display = 'none');
+    $(`#tab-${btn.dataset.tab}`).style.display = 'block';
+    if (btn.dataset.tab === 'audio') setTimeout(drawWaveform, 50);
+  });
+});
+
+// ==================== UPLOAD ZONES ====================
+function setupUploadZone(zoneId, inputId, onFiles, multiple = true) {
+  const zone = $(zoneId);
+  const input = $(inputId);
+  if (!zone || !input) { console.error('setupUploadZone: element not found', zoneId, inputId); return; }
+  input.multiple = multiple;
+
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', e => { e.preventDefault(); zone.classList.remove('drag-over'); });
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    zone.classList.remove('drag-over');
+    try {
+      const dt = e.dataTransfer;
+      if (!dt || !dt.files || !dt.files.length) {
+        console.warn('[Drop] No files in dataTransfer');
+        return;
+      }
+      const files = Array.from(dt.files);
+      console.log('[Drop] Zone:', zoneId, 'Files:', files.length);
+      onFiles(files);
+    } catch (err) {
+      console.error('[Drop] Error:', err);
+    }
+  });
+  input.addEventListener('change', () => {
+    try {
+      const files = Array.from(input.files);
+      if (files.length) onFiles(files);
+      input.value = '';
+    } catch (err) {
+      console.error('[Input change] Error:', err);
+    }
+  });
+}
+
+// ==================== TAB: IMAGE CONVERSION ====================
+setupUploadZone('#convert-zone', '#convert-input', files => {
+  const imageFiles = files.filter(f => f.type.startsWith('image/'));
+  if (!imageFiles.length) { toast('请选择图片文件'); return; }
+  state.convertFiles = [...state.convertFiles, ...imageFiles];
+  renderConvertFiles();
+});
+
+function renderConvertFiles() {
+  const grid = $('#convert-files');
+  const empty = $('#convert-empty');
+  const actions = $('#convert-actions');
+  if (!state.convertFiles.length) {
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    actions.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  actions.style.display = 'flex';
+  grid.innerHTML = state.convertFiles.map((f, i) => `
+    <div class="file-card fade-in">
+      <img class="thumb" src="${URL.createObjectURL(f)}" alt="${f.name}">
+      <button class="remove-btn" data-idx="${i}">&times;</button>
+      <div class="info">
+        <div class="name" title="${f.name}">${f.name}</div>
+        <div class="meta"><span>${formatSize(f.size)}</span><span>${f.type}</span></div>
+      </div>
+    </div>
+  `).join('');
+  // Remove buttons
+  grid.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx);
+      state.convertFiles.splice(idx, 1);
+      renderConvertFiles();
+    });
+  });
+}
+
+$('#convert-clear').addEventListener('click', () => {
+  state.convertFiles = [];
+  state.convertResults = [];
+  $('#convert-results').innerHTML = '';
+  $('#convert-results-card').style.display = 'none';
+  renderConvertFiles();
+});
+
+// Format selector -> show/hide quality slider
+$('#convert-format').addEventListener('change', () => {
+  const fmt = $('#convert-format').value;
+  const qg = $('#convert-quality-group');
+  qg.style.display = (fmt === 'image/png') ? 'none' : 'flex';
+});
+$('#convert-quality').addEventListener('input', () => {
+  $('#convert-quality-val').textContent = $('#convert-quality').value;
+});
+
+// Convert button
+$('#convert-btn').addEventListener('click', async () => {
+  if (!state.convertFiles.length) return;
+  const fmt = $('#convert-format').value;
+  const quality = parseInt($('#convert-quality').value);
+  const progress = $('#convert-progress');
+  const bar = progress.querySelector('.progress-bar-fg');
+  const text = progress.querySelector('.progress-text');
+
+  progress.style.display = 'block';
+  bar.style.width = '0%';
+  state.convertResults = [];
+  $('#convert-results').innerHTML = '';
+  $('#convert-results-card').style.display = 'block';
+  $('#convert-btn').disabled = true;
+
+  for (let i = 0; i < state.convertFiles.length; i++) {
+    const f = state.convertFiles[i];
+    text.textContent = `正在转换 ${i + 1}/${state.convertFiles.length}：${f.name}`;
+    try {
+      const img = await readImage(f);
+      const blob = await canvasConvert(img, fmt, quality);
+      const ext = extFromMime(fmt);
+      const newName = f.name.replace(/\.[^.]+$/, '') + '.' + ext;
+      state.convertResults.push({ blob, name: newName, origSize: f.size, newSize: blob.size });
+    } catch (e) {
+      console.error('Convert error:', e);
+      toast(`转换失败：${f.name}`);
+    }
+    bar.style.width = ((i + 1) / state.convertFiles.length * 100) + '%';
+  }
+
+  text.textContent = `转换完成！共 ${state.convertResults.length} 个文件`;
+  $('#convert-btn').disabled = false;
+  renderConvertResults();
+});
+
+function renderConvertResults() {
+  const grid = $('#convert-results');
+  grid.innerHTML = state.convertResults.map((r, i) => `
+    <div class="result-card fade-in">
+      <img class="thumb" src="${URL.createObjectURL(r.blob)}" alt="${r.name}">
+      <div class="info">
+        <div class="name" title="${r.name}">${r.name}</div>
+        <div class="size-compare">
+          ${formatSize(r.origSize)} <span class="arrow">&rarr;</span> ${formatSize(r.newSize)}
+          <span class="reduced">${pctChange(r.origSize, r.newSize)}</span>
+        </div>
+        <button class="dl-btn" data-idx="${i}">下载</button>
+      </div>
+    </div>
+  `).join('');
+  grid.querySelectorAll('.dl-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const r = state.convertResults[parseInt(btn.dataset.idx)];
+      downloadBlob(r.blob, r.name);
+    });
+  });
+}
+
+$('#convert-download-all').addEventListener('click', async () => {
+  if (!state.convertResults.length) return;
+  const zip = new JSZip();
+  state.convertResults.forEach(r => zip.file(r.name, r.blob));
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  downloadBlob(zipBlob, 'converted-images.zip');
+  toast('打包下载已开始');
+});
+
+// ==================== TAB: AUDIO TRIMMER ====================
+let audioCtxTrim = null;
+let audioBufferTrim = null;
+let trimStart = 0;
+let trimEnd = 0;
+let trimDuration = 0;
+let trimPreviewSource = null;
+
+function getAudioCtx() {
+  if (!audioCtxTrim) audioCtxTrim = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtxTrim.state === 'suspended') audioCtxTrim.resume();
+  return audioCtxTrim;
+}
+
+setupUploadZone('#audio-zone', '#audio-input', files => {
+  console.log('[Audio] Received files:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
+  const audioExts = /\.(mp3|wav|ogg|aac|flac|m4a|webm|wma|opus|weba|oga|aiff|wv|ape)$/i;
+  const audioFile = files.find(f => {
+    if (f.type && f.type.startsWith('audio/')) return true;
+    if (audioExts.test(f.name)) return true;
+    // Fallback: any file with no recognized type but audio-like extension
+    return false;
+  });
+  if (!audioFile) {
+    console.warn('[Audio] No audio file found in drop:', files.map(f => f.name));
+    toast('请选择音频文件（支持 MP3/WAV/OGG/AAC/FLAC/M4A 等格式）');
+    return;
+  }
+  console.log('[Audio] Loading:', audioFile.name, audioFile.type);
+  loadAudioFile(audioFile);
+}, false);
+
+async function loadAudioFile(file) {
+  try {
+    const ctx = getAudioCtx();
+    const buf = await file.arrayBuffer();
+    if (!buf || buf.byteLength === 0) { toast('文件读取失败，文件可能为空'); return; }
+    try {
+      audioBufferTrim = await ctx.decodeAudioData(buf);
+    } catch (e) {
+      console.error('Audio decode error:', e, 'file:', file.name, 'type:', file.type);
+      toast('音频解码失败，请尝试其他格式（如 WAV 或重新编码的 MP3）');
+      return;
+    }
+
+    trimStart = 0;
+    trimEnd = audioBufferTrim.duration;
+    trimDuration = audioBufferTrim.duration;
+
+    // Show info
+    $('#audio-info').style.display = 'block';
+    $('#audio-name').textContent = file.name;
+    $('#audio-size').textContent = formatSize(file.size);
+    $('#audio-duration-text').textContent = fmtTime(audioBufferTrim.duration);
+    $('#audio-sample-rate').textContent = (audioBufferTrim.sampleRate / 1000).toFixed(1) + ' kHz';
+
+    // Show waveform
+    drawWaveform();
+    updateTrimOverlay();
+    updateTrimDisplay();
+
+    $('#waveform-container').style.display = 'block';
+    $('#trim-time-display').style.display = 'flex';
+    $('#audio-actions').style.display = 'flex';
+    $('#audio-progress').style.display = 'none';
+
+    toast('音频加载成功！拖拽圆形手柄即可选取剪切范围');
+  } catch (e) {
+    console.error('loadAudioFile error:', e);
+    toast('音频加载失败：' + (e.message || '未知错误'));
+  }
+}
+
+function drawWaveform() {
+  const canvas = $('#waveform-canvas');
+  const container = $('#waveform-container');
+  const w = container.clientWidth;
+  const h = 120;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+
+  const ctx2d = canvas.getContext('2d');
+  ctx2d.scale(dpr, dpr);
+  ctx2d.clearRect(0, 0, w, h);
+
+  if (!audioBufferTrim) return;
+  const data = audioBufferTrim.getChannelData(0);
+  const step = Math.max(1, Math.floor(data.length / w));
+  const mid = h / 2;
+
+  ctx2d.beginPath();
+  ctx2d.strokeStyle = '#818cf8';
+  ctx2d.lineWidth = 1;
+  for (let i = 0; i < w; i++) {
+    let max = 0;
+    const start = Math.floor(i * step);
+    const end = Math.min(start + step, data.length);
+    for (let j = start; j < end; j++) {
+      const abs = Math.abs(data[j]);
+      if (abs > max) max = abs;
+    }
+    const y = max * mid;
+    ctx2d.moveTo(i, mid - y);
+    ctx2d.lineTo(i, mid + y);
+  }
+  ctx2d.stroke();
+}
+
+function updateTrimOverlay() {
+  const container = $('#waveform-container');
+  const w = container.clientWidth;
+  if (!trimDuration || w === 0) return;
+  const leftPct = (trimStart / trimDuration) * 100;
+  const rightPct = 100 - (trimEnd / trimDuration) * 100;
+  const overlay = $('#trim-overlay');
+  overlay.style.left = leftPct + '%';
+  overlay.style.right = rightPct + '%';
+
+  const leftHandle = $('#trim-handle-left');
+  const rightHandle = $('#trim-handle-right');
+  leftHandle.style.left = leftPct + '%';
+  rightHandle.style.right = rightPct + '%';
+}
+
+function updateTrimDisplay() {
+  $('#trim-start-display').textContent = fmtTime(trimStart);
+  $('#trim-end-display').textContent = fmtTime(trimEnd);
+  $('#trim-dur-display').textContent = fmtTime(Math.max(0, trimEnd - trimStart));
+}
+
+// Draggable handles
+function setupTrimHandles() {
+  const container = $('#waveform-container');
+  const leftHandle = $('#trim-handle-left');
+  const rightHandle = $('#trim-handle-right');
+  let dragging = null;
+
+  function getTimeFromClientX(clientX) {
+    const rect = container.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return pct * trimDuration;
+  }
+
+  leftHandle.addEventListener('mousedown', e => { dragging = 'left'; e.preventDefault(); });
+  leftHandle.addEventListener('touchstart', e => { dragging = 'left'; e.preventDefault(); });
+  rightHandle.addEventListener('mousedown', e => { dragging = 'right'; e.preventDefault(); });
+  rightHandle.addEventListener('touchstart', e => { dragging = 'right'; e.preventDefault(); });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const t = getTimeFromClientX(e.clientX);
+    if (dragging === 'left') { trimStart = Math.min(t, trimEnd - 0.1); }
+    else { trimEnd = Math.max(t, trimStart + 0.1); }
+    updateTrimOverlay();
+    updateTrimDisplay();
+  });
+  document.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    const t = getTimeFromClientX(e.touches[0].clientX);
+    if (dragging === 'left') { trimStart = Math.min(t, trimEnd - 0.1); }
+    else { trimEnd = Math.max(t, trimStart + 0.1); }
+    updateTrimOverlay();
+    updateTrimDisplay();
+  });
+  document.addEventListener('mouseup', () => { dragging = null; });
+  document.addEventListener('touchend', () => { dragging = null; });
+}
+setupTrimHandles();
+
+// Resize handler
+window.addEventListener('resize', () => {
+  if ($('#tab-audio').style.display !== 'none') drawWaveform();
+});
+
+// Preview
+$('#audio-preview-btn').addEventListener('click', () => {
+  if (!audioBufferTrim) return;
+  stopPreview();
+  const ctx = getAudioCtx();
+  const startSample = Math.floor(trimStart * audioBufferTrim.sampleRate);
+  const endSample = Math.floor(trimEnd * audioBufferTrim.sampleRate);
+  const length = endSample - startSample;
+  if (length <= 0) { toast('选区长度无效'); return; }
+
+  const sliced = ctx.createBuffer(1, length, audioBufferTrim.sampleRate);
+  sliced.copyToChannel(audioBufferTrim.getChannelData(0).slice(startSample, endSample), 0);
+
+  trimPreviewSource = ctx.createBufferSource();
+  trimPreviewSource.buffer = sliced;
+  trimPreviewSource.connect(ctx.destination);
+  trimPreviewSource.onended = () => { trimPreviewSource = null; };
+  trimPreviewSource.start();
+});
+
+function stopPreview() {
+  if (trimPreviewSource) {
+    try { trimPreviewSource.stop(); } catch (e) { /* already stopped */ }
+    trimPreviewSource = null;
+  }
+}
+
+// Export
+function sliceAudioBuffer() {
+  const startSample = Math.floor(trimStart * audioBufferTrim.sampleRate);
+  const endSample = Math.floor(trimEnd * audioBufferTrim.sampleRate);
+  const length = endSample - startSample;
+  if (length <= 0) return null;
+  const sliced = getAudioCtx().createBuffer(audioBufferTrim.numberOfChannels, length, audioBufferTrim.sampleRate);
+  for (let ch = 0; ch < audioBufferTrim.numberOfChannels; ch++) {
+    sliced.copyToChannel(audioBufferTrim.getChannelData(ch).slice(startSample, endSample), ch);
+  }
+  return sliced;
+}
+
+function encodeWAV(buffer) {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const length = buffer.length * numChannels;
+  const data = new Int16Array(length);
+
+  // Mix down to mono and convert to Int16
+  for (let i = 0; i < buffer.length; i++) {
+    let sum = 0;
+    for (let ch = 0; ch < numChannels; ch++) sum += buffer.getChannelData(ch)[i];
+    const s = Math.max(-1, Math.min(1, sum / numChannels));
+    data[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+
+  const header = new ArrayBuffer(44);
+  const view = new DataView(header);
+  writeStr(view, 0, 'RIFF');
+  view.setUint32(4, 36 + data.length * 2, true);
+  writeStr(view, 8, 'WAVE');
+  writeStr(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);  // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(view, 36, 'data');
+  view.setUint32(40, data.length * 2, true);
+
+  return new Blob([header, data.buffer], { type: 'audio/wav' });
+}
+
+function writeStr(view, offset, str) {
+  for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+}
+
+function encodeTrimmedMP3() {
+  const buffer = sliceAudioBuffer();
+  if (!buffer) return null;
+  // Mix to mono Int16
+  const samples = buffer.length;
+  const int16 = new Int16Array(samples);
+  for (let i = 0; i < samples; i++) {
+    let sum = 0;
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) sum += buffer.getChannelData(ch)[i];
+    const s = Math.max(-1, Math.min(1, sum / buffer.numberOfChannels));
+    int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  const encoder = new lamejs.Mp3Encoder(1, buffer.sampleRate, 128);
+  const mp3Data = [];
+  const maxSamples = 1152;
+  for (let i = 0; i < int16.length; i += maxSamples) {
+    const chunk = int16.subarray(i, i + maxSamples);
+    const mp3buf = encoder.encodeBuffer(chunk);
+    if (mp3buf.length > 0) mp3Data.push(mp3buf);
+  }
+  const tail = encoder.flush();
+  if (tail.length > 0) mp3Data.push(tail);
+  return new Blob(mp3Data, { type: 'audio/mpeg' });
+}
+
+$('#audio-export-mp3').addEventListener('click', () => {
+  if (!audioBufferTrim) return;
+  stopPreview();
+  const progress = $('#audio-progress');
+  const bar = progress.querySelector('.progress-bar-fg');
+  const text = progress.querySelector('.progress-text');
+  progress.style.display = 'block';
+  bar.style.width = '0%';
+  text.textContent = '正在编码 MP3...';
+
+  setTimeout(() => {
+    try {
+      const blob = encodeTrimmedMP3();
+      if (!blob) { toast('编码失败'); progress.style.display = 'none'; return; }
+      bar.style.width = '100%';
+      text.textContent = '编码完成！';
+      const name = getTrimmedName('.mp3');
+      downloadBlob(blob, name);
+      toast('MP3 下载已开始');
+    } catch (e) {
+      console.error(e);
+      text.textContent = '编码失败：' + e.message;
+    }
+  }, 100);
+});
+
+$('#audio-export-wav').addEventListener('click', () => {
+  if (!audioBufferTrim) return;
+  stopPreview();
+  const buffer = sliceAudioBuffer();
+  if (!buffer) { toast('切片失败'); return; }
+  const blob = encodeWAV(buffer);
+  const name = getTrimmedName('.wav');
+  downloadBlob(blob, name);
+  toast('WAV 下载已开始');
+});
+
+function getTrimmedName(ext) {
+  const raw = $('#audio-name').textContent || 'audio';
+  return raw.replace(/\.[^.]+$/, '') + '_trimmed' + ext;
+}
+
+$('#audio-clear').addEventListener('click', () => {
+  stopPreview();
+  audioBufferTrim = null;
+  trimStart = 0;
+  trimEnd = 0;
+  trimDuration = 0;
+  $('#audio-info').style.display = 'none';
+  $('#waveform-container').style.display = 'none';
+  $('#trim-time-display').style.display = 'none';
+  $('#audio-actions').style.display = 'none';
+  $('#audio-progress').style.display = 'none';
+  const canvas = $('#waveform-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+});
+
+// ==================== TAB: VIDEO TO MP3 ====================
+// 使用浏览器原生 Web Audio API + lamejs 纯 JS MP3 编码器，无需下载 30MB 引擎
+
+setupUploadZone('#video-zone', '#video-input', files => {
+  const videoFile = files.find(f => f.type.startsWith('video/'));
+  if (!videoFile) { toast('请选择视频文件'); return; }
+  state.videoFile = videoFile;
+  state.mp3Blob = null;
+  $('#video-result-card').style.display = 'none';
+
+  // Show video info
+  const info = $('#video-info');
+  $('#video-name').textContent = videoFile.name;
+  $('#video-size').textContent = formatSize(videoFile.size);
+  info.style.display = 'block';
+
+  // Get duration
+  const videoUrl = URL.createObjectURL(videoFile);
+  const video = document.createElement('video');
+  video.preload = 'metadata';
+  video.src = videoUrl;
+  video.onloadedmetadata = () => {
+    const mins = Math.floor(video.duration / 60);
+    const secs = Math.floor(video.duration % 60);
+    $('#video-duration').textContent = `${mins}:${String(secs).padStart(2,'0')}`;
+    URL.revokeObjectURL(videoUrl);
+  };
+
+  $('#video-actions').style.display = 'flex';
+  $('#video-progress').style.display = 'none';
+  $('#video-convert-btn').disabled = false;
+}, false);
+
+$('#video-clear').addEventListener('click', () => {
+  state.videoFile = null;
+  state.mp3Blob = null;
+  $('#video-info').style.display = 'none';
+  $('#video-actions').style.display = 'none';
+  $('#video-progress').style.display = 'none';
+  $('#video-result-card').style.display = 'none';
+});
+
+$('#video-convert-btn').addEventListener('click', async () => {
+  if (!state.videoFile) return;
+
+  const btn = $('#video-convert-btn');
+  const progress = $('#video-progress');
+  const bar = progress.querySelector('.progress-bar-fg');
+  const text = progress.querySelector('.progress-text');
+
+  btn.disabled = true;
+  progress.style.display = 'block';
+  bar.style.width = '0%';
+
+  let audioCtx = null;
+  try {
+    text.textContent = '正在初始化音频引擎...';
+    bar.style.width = '5%';
+
+    // 创建 video 元素加载视频
+    const videoUrl = URL.createObjectURL(state.videoFile);
+    const video = document.createElement('video');
+    video.src = videoUrl;
+    video.preload = 'auto';
+    video.crossOrigin = 'anonymous';
+
+    // 等待视频元数据加载
+    await new Promise((resolve, reject) => {
+      video.onloadedmetadata = resolve;
+      video.onerror = () => reject(new Error('视频加载失败'));
+    });
+
+    text.textContent = '正在准备音频提取...';
+    bar.style.width = '10%';
+
+    // 创建 AudioContext
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaElementSource(video);
+
+    // 使用 ScriptProcessorNode 捕获 PCM 数据
+    const sampleRate = audioCtx.sampleRate;
+    const bufferSize = 4096;
+    const spn = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+    const pcmChunks = [];
+
+    spn.onaudioprocess = (e) => {
+      const input = e.inputBuffer.getChannelData(0);
+      pcmChunks.push(new Float32Array(input));
+    };
+
+    source.connect(spn);
+    spn.connect(audioCtx.destination);
+
+    // 播放视频（用户交互已触发，autoplay 允许）
+    video.play();
+
+    const duration = video.duration;
+    text.textContent = '正在提取音频（实时处理，请耐心等待）...';
+
+    // 实时更新进度
+    const progressInterval = setInterval(() => {
+      if (video.duration > 0) {
+        const pct = Math.min(10 + (video.currentTime / video.duration) * 85, 95);
+        bar.style.width = pct + '%';
+        const elapsed = Math.floor(video.currentTime);
+        const total = Math.floor(video.duration);
+        text.textContent = `正在提取音频… ${elapsed}s / ${total}s`;
+      }
+    }, 500);
+
+    // 等待视频播放完成
+    await new Promise((resolve, reject) => {
+      video.onended = () => { clearInterval(progressInterval); resolve(); };
+      video.onerror = () => { clearInterval(progressInterval); reject(new Error('视频播放异常')); };
+    });
+
+    // 断开音频节点
+    spn.disconnect();
+    source.disconnect();
+
+    text.textContent = '正在编码 MP3...';
+    bar.style.width = '92%';
+
+    // 合并 PCM 数据
+    const totalLength = pcmChunks.reduce((sum, c) => sum + c.length, 0);
+    if (totalLength === 0) throw new Error('未提取到音频数据，该视频可能没有音轨');
+
+    const pcmData = new Float32Array(totalLength);
+    let offset = 0;
+    for (const chunk of pcmChunks) { pcmData.set(chunk, offset); offset += chunk.length; }
+
+    // Float32 → Int16（lamejs 需要 Int16）
+    const int16Data = new Int16Array(totalLength);
+    for (let i = 0; i < totalLength; i++) {
+      const s = Math.max(-1, Math.min(1, pcmData[i]));
+      int16Data[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+
+    // 用 lamejs 编码 MP3（128kbps 立体声模拟）
+    const mp3encoder = new lamejs.Mp3Encoder(1, sampleRate, 128);
+    const mp3Data = [];
+    const maxSamples = 1152;
+    for (let i = 0; i < int16Data.length; i += maxSamples) {
+      const chunk = int16Data.subarray(i, i + maxSamples);
+      const mp3buf = mp3encoder.encodeBuffer(chunk);
+      if (mp3buf.length > 0) mp3Data.push(mp3buf);
+    }
+    const tail = mp3encoder.flush();
+    if (tail.length > 0) mp3Data.push(tail);
+
+    // 生成 Blob
+    state.mp3Blob = new Blob(mp3Data, { type: 'audio/mpeg' });
+    const baseName = state.videoFile.name.replace(/\.[^.]+$/, '');
+    state.mp3Name = baseName + '.mp3';
+
+    bar.style.width = '100%';
+    text.textContent = '提取完成！';
+
+    // 显示结果
+    $('#mp3-name').textContent = state.mp3Name;
+    $('#mp3-size').textContent = '文件大小：' + formatSize(state.mp3Blob.size);
+    $('#video-result-card').style.display = 'block';
+
+    // 清理
+    URL.revokeObjectURL(videoUrl);
+    video.remove();
+
+  } catch (e) {
+    console.error('Video conversion error:', e);
+    text.textContent = '转换失败：' + (e.message || '未知错误');
+    bar.style.width = '0%';
+    toast('音频提取失败，请重试');
+  } finally {
+    btn.disabled = false;
+    if (audioCtx) { audioCtx.close().catch(() => {}); }
+  }
+});
+
+$('#video-download-btn').addEventListener('click', () => {
+  if (state.mp3Blob) {
+    downloadBlob(state.mp3Blob, state.mp3Name);
+    toast('MP3 下载已开始');
+  }
+});
+</script>
+
+</body>
+</html>
